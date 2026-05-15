@@ -17,6 +17,7 @@ agent-Anufry/
 
 ## 1. Установка зависимостей
 pip install -r requirements.txt
+
 playwright install chromium
 
 ## 2. Настройка API-ключа
