@@ -1,7 +1,6 @@
 ---
----
 name: mongo-compass
-description: &gt;
+description: >
   Используй этот навык, когда пользователь просит:
   - выполнить запрос к MongoDB через MongoDB Compass
   - найти/посчитать/обновить/удалить документы в MongoDB
