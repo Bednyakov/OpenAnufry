@@ -1,7 +1,3 @@
-
-## scripts/query_mongodb.sh
-
-```bash
 #!/bin/bash
 # query_mongodb.sh — вспомогательный скрипт для выполнения MongoDB запросов
 

@@ -3,7 +3,9 @@ import yaml
 from pathlib import Path
 from typing import List, Dict, Any, Optional
 
-SKILLS_DIR = os.path.expanduser("~/agent-workspace/skills")
+# Путь к навыкам относительно корня проекта
+PROJECT_ROOT = Path(__file__).parent.parent
+SKILLS_DIR = PROJECT_ROOT / "skills"
 
 class Skill:
     def __init__(self, path: Path, metadata: Dict[str, Any], content: str):
