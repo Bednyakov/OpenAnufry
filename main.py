@@ -5,6 +5,7 @@
 import json
 import asyncio
 import os
+import uuid
 from typing import List, Dict, Any
 from openai import AsyncOpenAI
 
@@ -14,6 +15,10 @@ from tools.filesystem import read_file, write_file, list_dir, search_files
 from tools.browser import (
     browser_navigate, browser_click, browser_type, 
     browser_get_text, browser_screenshot, browser_close
+)
+from tools.memory_tools import (
+    memory_save_fact, memory_search, memory_get_summary, 
+    memory_cleanup, get_memory_manager
 )
 
 client = AsyncOpenAI(api_key=LLM_API_KEY, base_url=LLM_BASE_URL)
@@ -115,16 +120,82 @@ TOOLS = [
                 "required": []
             }
         }
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "memory_save_fact",
+            "description": "Сохраняет важный факт в долговременную память агента. Используй для: информации о пользователе, успешных решений, настроек, важных выводов.",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "content": {"type": "string", "description": "Содержимое факта для сохранения"},
+                    "category": {"type": "string", "description": "Категория (user_info, solution, preference, skill, general)", "default": "general"}
+                },
+                "required": ["content"]
+            }
+        }
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "memory_search",
+            "description": "Ищет релевантную информацию в долговременной памяти агента. Используй когда нужно вспомнить что-то из прошлых диалогов.",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "query": {"type": "string", "description": "Поисковый запрос"},
+                    "limit": {"type": "integer", "description": "Максимальное количество результатов", "default": 5}
+                },
+                "required": ["query"]
+            }
+        }
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "memory_get_summary",
+            "description": "Получает статистику по памяти агента (количество фактов, диалогов, навыков).",
+            "parameters": {
+                "type": "object",
+                "properties": {},
+                "required": []
+            }
+        }
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "memory_cleanup",
+            "description": "Очищает устаревшие данные из памяти (удаляет малозначимую информацию старше N дней).",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "days": {"type": "integer", "description": "Удалить данные старше N дней", "default": 30}
+                },
+                "required": []
+            }
+        }
     }
 ]
 
-SYSTEM_PROMPT = """Ты — агент с полным доступом к локальной Linux-системе.
+SYSTEM_PROMPT = """Ты — агент с полным доступом к локальной Linux-системе и долговременной памятью.
+
 У тебя есть инструменты:
 - run_shell — выполняет любые терминальные команды
 - read_file / write_file / list_dir — работа с файлами
 - browser_navigate / browser_get_text — управление браузером
+- memory_save_fact — сохраняет важную информацию в долговременную память
+- memory_search — ищет релевантную информацию из прошлых диалогов
+- memory_get_summary — показывает статистику памяти
+- memory_cleanup — очищает устаревшие данные
 
-Правила:
+Правила работы с памятью:
+- Автоматически сохраняй важную информацию: факты о пользователе, успешные решения, настройки
+- Используй memory_search когда пользователь спрашивает о прошлых взаимодействиях
+- Категории для фактов: user_info, solution, preference, skill, general
+
+Общие правила:
 1. Всегда проверяй наличие инструментов перед использованием (which, command -v)
 2. Для сложных задач разбивай на шаги
 3. Читай вывод команд перед следующим шагом
@@ -148,10 +219,18 @@ async def execute_tool(name: str, arguments: Dict[str, Any]) -> Dict[str, Any]:
         return await browser_navigate(arguments["url"])
     elif name == "browser_get_text":
         return await browser_get_text(arguments.get("selector", "body"))
+    elif name == "memory_save_fact":
+        return await memory_save_fact(arguments["content"], arguments.get("category", "general"))
+    elif name == "memory_search":
+        return await memory_search(arguments["query"], arguments.get("limit", 5))
+    elif name == "memory_get_summary":
+        return await memory_get_summary()
+    elif name == "memory_cleanup":
+        return await memory_cleanup(arguments.get("days", 30))
     else:
         return {"error": f"Неизвестный инструмент: {name}"}
 
-async def agent_loop(user_message: str) -> str:
+async def agent_loop(user_message: str, session_id: str) -> str:
     """
     Основной цикл агента:
     1. Отправляет сообщение LLM с доступными инструментами
@@ -160,8 +239,22 @@ async def agent_loop(user_message: str) -> str:
     4. Отправляет результат обратно в LLM
     5. Повторяет до MAX_ITERATIONS или финального ответа
     """
+    # Получаем менеджер памяти
+    memory = get_memory_manager()
+    
+    # Сохраняем сообщение пользователя в память
+    await memory.add_conversation(session_id, "user", user_message)
+    
+    # Получаем релевантный контекст из памяти
+    memory_context = await memory.build_context_prompt(user_message, session_id)
+    
+    # Формируем system prompt с контекстом памяти
+    system_prompt_with_memory = SYSTEM_PROMPT
+    if memory_context:
+        system_prompt_with_memory += f"\n\n{memory_context}"
+    
     messages: List[Dict[str, Any]] = [
-        {"role": "system", "content": SYSTEM_PROMPT},
+        {"role": "system", "content": system_prompt_with_memory},
         {"role": "user", "content": user_message}
     ]
     
@@ -179,9 +272,11 @@ async def agent_loop(user_message: str) -> str:
         
         message = response.choices[0].message
         
-        # Если LLM дал финальный ответ — возвращаем
+        # Если LLM дал финальный ответ — сохраняем и возвращаем
         if not message.tool_calls:
-            return message.content or "Готово."
+            final_response = message.content or "Готово."
+            await memory.add_conversation(session_id, "assistant", final_response)
+            return final_response
         
         # Добавляем ответ ассистента (с tool_calls) в историю
         messages.append({
@@ -220,8 +315,12 @@ async def agent_loop(user_message: str) -> str:
 
 async def main():
     print("=" * 50)
-    print("🤖 Агент с доступом к shell (Ctrl+C для выхода)")
+    print("🤖 Агент с доступом к shell и памятью (Ctrl+C для выхода)")
     print("=" * 50)
+    
+    # Генерируем уникальный ID сессии
+    session_id = str(uuid.uuid4())
+    print(f"📝 ID сессии: {session_id[:8]}...")
     
     while True:
         try:
@@ -232,7 +331,7 @@ async def main():
                 break
             
             print("\n⏳ Агент думает...")
-            result = await agent_loop(user_input)
+            result = await agent_loop(user_input, session_id)
             print(f"\n🤖 Агент: {result}")
             
         except KeyboardInterrupt:
