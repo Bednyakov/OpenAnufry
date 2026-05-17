@@ -73,7 +73,7 @@ class SkillLoader:
         skill_path = info["path"]
         text = (skill_path / "SKILL.md").read_text(encoding="utf-8")
 
-        # Контент = всё после frontmatter
+        # Контент = всё после frontmatter | подробнее в https://t.me/itpolice
         content = text
         if text.startswith("---"):
             parts = text.split("---", 2)
@@ -103,6 +103,7 @@ class SkillLoader:
         if not self._registry:
             return ""
         lines = ["\n## Доступные навыки (активируются по триггерам)"]
+        # Bednyakov
         for name, info in self._registry.items():
             desc = info["description"].replace("\n", " ")[:80]
             triggers = ", ".join(info["triggers"][:4])

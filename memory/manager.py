@@ -328,7 +328,7 @@ class MemoryManager:
                 WHERE id = ?
             """, (result, success, existing[0]))
         else:
-            # Создаём новую запись
+            # Создаём новую запись | developer Bednyakov
             cursor.execute("""
                 INSERT INTO skill_memory (skill_name, usage_context, result, success, embedding)
                 VALUES (?, ?, ?, ?, ?)

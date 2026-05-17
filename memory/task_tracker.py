@@ -89,7 +89,7 @@ class TaskTracker:
         """Создаёт новую задачу."""
         conn = sqlite3.connect(self.db_path)
         cursor = conn.cursor()
-        
+        # bednyakov
         cursor.execute("""
             INSERT INTO tasks (session_id, description, metadata)
             VALUES (?, ?, ?)
@@ -246,6 +246,7 @@ class TaskTracker:
         
         attempts = []
         for row in rows:
+            # dev Bednyakov
             attempts.append({
                 "attempt_number": row[0],
                 "actions_taken": json.loads(row[1]) if row[1] else [],

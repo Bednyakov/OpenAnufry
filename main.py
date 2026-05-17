@@ -15,7 +15,7 @@ from tools.filesystem import read_file, write_file, list_dir, search_files
 from tools.browser import (
     browser_navigate, browser_click, browser_type, 
     browser_get_text, browser_screenshot, browser_search_google, 
-    browser_extract_content, browser_close
+    browser_extract_content, browser_navigate_search_page, browser_close
 )
 from tools.memory_tools import (
     memory_save_fact, memory_search, memory_get_summary, 
@@ -163,6 +163,21 @@ TOOLS = [
                     "selectors": {"type": "array", "items": {"type": "string"}, "description": "CSS селекторы для извлечения (опционально)", "default": None}
                 },
                 "required": ["url"]
+            }
+        }
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "browser_navigate_search_page",
+            "description": "Навигация по страницам результатов поисковых систем (Google, Yandex). Используй для изучения нескольких страниц поисковой выдачи. ВАЖНО: сначала выполни browser_search_google, затем используй эту функцию для перехода на следующие страницы.",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "direction": {"type": "string", "description": "Направление навигации: 'next' (следующая страница) или 'prev' (предыдущая)", "default": "next"},
+                    "search_engine": {"type": "string", "description": "Поисковая система: 'google', 'yandex' или 'auto' (автоопределение)", "default": "auto"}
+                },
+                "required": []
             }
         }
     },
@@ -529,6 +544,8 @@ async def execute_tool(name: str, arguments: Dict[str, Any], session_id: str = "
         return await browser_search_google(arguments["query"])
     elif name == "browser_extract_content":
         return await browser_extract_content(arguments["url"], arguments.get("selectors"))
+    elif name == "browser_navigate_search_page":
+        return await browser_navigate_search_page(arguments.get("direction", "next"), arguments.get("search_engine", "auto"))
     elif name == "memory_save_fact":
         return await memory_save_fact(arguments["content"], arguments.get("category", "general"))
     elif name == "memory_search":
@@ -627,7 +644,7 @@ async def agent_loop(user_message: str, session_id: str) -> str:
     # Получаем менеджер памяти
     memory = get_memory_manager()
     
-    # Сохраняем сообщение пользователя в память
+    # Сохраняем сообщение пользователя в память | Bednyakov
     await memory.add_conversation(session_id, "user", user_message)
     
     # Получаем релевантный контекст из памяти
@@ -683,7 +700,7 @@ async def agent_loop(user_message: str, session_id: str) -> str:
             ]
         })
         
-        # Выполняем все запрошенные инструменты
+        # Выполняем все запрошенные инструменты | https://t.me/itpolice
         for tool_call in message.tool_calls:
             name = tool_call.function.name
             args = json.loads(tool_call.function.arguments)

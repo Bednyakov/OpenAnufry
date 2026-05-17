@@ -104,6 +104,7 @@ async def browser_type(selector: str, text: str) -> Dict[str, Any]:
     page = await _ensure_browser()
     try:
         await page.fill(selector, text)
+        # dev Bednyakov
         await asyncio.sleep(0.3)  # Имитация человеческого поведения
         return {"success": True, "selector": selector, "text": text}
     except Exception as e:
@@ -143,6 +144,7 @@ async def browser_search_google(query: str) -> Dict[str, Any]:
         if search_input:
             await search_input.type(query, delay=100)  # Имитация печати человека
             await asyncio.sleep(0.5)
+            # tg https://t.me/itpolice
             await search_input.press("Enter")
             
             # Ждем загрузки результатов
@@ -240,6 +242,7 @@ async def browser_search_google(query: str) -> Dict[str, Any]:
             
             # Если результатов все еще нет, делаем скриншот для отладки
             if not results:
+                # разработал Бедняков Тема
                 try:
                     await page.screenshot(path="debug_search_results.png")
                     page_content = await page.content()
@@ -314,6 +317,205 @@ async def browser_extract_content(url: str, selectors: list = None) -> Dict[str,
         }
     except Exception as e:
         return {"success": False, "error": str(e), "url": url}
+
+async def browser_navigate_search_page(direction: str = "next", search_engine: str = "google") -> Dict[str, Any]:
+    """
+    Универсальная навигация по страницам результатов поисковых систем.
+    Поддерживает Google, Yandex и другие поисковые системы.
+    
+    Args:
+        direction: Направление навигации ("next" - следующая страница, "prev" - предыдущая)
+        search_engine: Поисковая система ("google", "yandex", "auto" - автоопределение)
+    
+    Returns:
+        Dict с успехом, номером страницы и новыми результатами поиска
+    """
+    page = await _ensure_browser()
+    try:
+        current_url = page.url
+        
+        # Автоопределение поисковой системы
+        if search_engine == "auto":
+            if 'google.com' in current_url:
+                search_engine = "google"
+            elif 'yandex.ru' in current_url or 'yandex.com' in current_url:
+                search_engine = "yandex"
+            else:
+                return {"success": False, "error": "Не удалось определить поисковую систему. Укажи search_engine явно."}
+        
+        # Проверяем, что мы на странице результатов поиска
+        if search_engine == "google" and 'google.com/search' not in current_url:
+            return {"success": False, "error": "Не на странице результатов Google. Сначала выполни browser_search_google."}
+        elif search_engine == "yandex" and 'yandex' not in current_url:
+            return {"success": False, "error": "Не на странице результатов Yandex. Сначала выполни поиск в Yandex."}
+        
+        # Селекторы для разных поисковых систем
+        selectors_map = {
+            "google": {
+                "next": ['a#pnnext', 'a[aria-label="Next page"]', 'a[aria-label="Следующая страница"]', 'td.d6cvqb a[id="pnnext"]'],
+                "prev": ['a#pnprev', 'a[aria-label="Previous page"]', 'a[aria-label="Предыдущая страница"]'],
+                "results": ['div.g', 'div[data-sokoban-container]', 'div.Gx5Zad', 'div[jscontroller][lang]']
+            },
+            "yandex": {
+                "next": ['a.Pager-Item_type_next', 'div.Pager a[aria-label="Следующая страница"]', 'a[class*="next"]'],
+                "prev": ['a.Pager-Item_type_prev', 'div.Pager a[aria-label="Предыдущая страница"]', 'a[class*="prev"]'],
+                "results": ['li.serp-item', 'div.serp-item', 'div.organic']
+            }
+        }
+        
+        # Получаем селекторы для текущей поисковой системы
+        selectors = selectors_map.get(search_engine, selectors_map["google"])
+        nav_selectors = selectors.get(direction, selectors["next"])
+        
+        # Ищем кнопку навигации
+        nav_button = None
+        for selector in nav_selectors:
+            try:
+                nav_button = await page.query_selector(selector)
+                if nav_button:
+                    break
+            except:
+                continue
+        
+        if not nav_button:
+            return {
+                "success": False, 
+                "error": f"Не найдена кнопка '{direction}'. Возможно, это {'последняя' if direction == 'next' else 'первая'} страница результатов."
+            }
+        
+        # Кликаем на кнопку навигации
+        await nav_button.click()
+        await page.wait_for_load_state("networkidle", timeout=15000)
+        await asyncio.sleep(3)  # Задержка для полной загрузки
+        
+        # Определяем номер текущей страницы
+        current_url = page.url
+        page_number = 1
+        
+        if search_engine == "google" and 'start=' in current_url:
+            import re
+            match = re.search(r'start=(\d+)', current_url)
+            if match:
+                start_value = int(match.group(1))
+                page_number = (start_value // 10) + 1
+        elif search_engine == "yandex" and 'p=' in current_url:
+            import re
+            match = re.search(r'p=(\d+)', current_url)
+            if match:
+                page_number = int(match.group(1)) + 1
+        
+        # Извлекаем результаты с новой страницы
+        results = []
+        result_selectors = selectors["results"]
+        
+        search_results = []
+        for selector in result_selectors:
+            search_results = await page.query_selector_all(selector)
+            if search_results:
+                break
+        
+        # Обрабатываем результаты в зависимости от поисковой системы
+        if search_engine == "google":
+            # Логика для Google (как в browser_search_google)
+            if not search_results:
+                h3_elements = await page.query_selector_all('h3')
+                for h3 in h3_elements:
+                    try:
+                        parent = await h3.evaluate_handle('el => el.closest("a") || el.parentElement.closest("a")')
+                        if parent:
+                            search_results.append(await h3.evaluate_handle('el => el.closest("div")'))
+                    except:
+                        continue
+            
+            for result in search_results[:10]:
+                try:
+                    title = ""
+                    title_elem = await result.query_selector('h3')
+                    if title_elem:
+                        title = await title_elem.inner_text()
+                    
+                    if not title:
+                        continue
+                    
+                    link = ""
+                    link_elem = await result.query_selector('a')
+                    if link_elem:
+                        link = await link_elem.get_attribute('href')
+                    
+                    if not link:
+                        all_links = await result.query_selector_all('a')
+                        for a in all_links:
+                            href = await a.get_attribute('href')
+                            if href and href.startswith('http') and 'google.com' not in href:
+                                link = href
+                                break
+                    
+                    if not link or not link.startswith('http'):
+                        continue
+                    
+                    snippet = ""
+                    snippet_selectors = ['div[data-sncf]', 'div.VwiC3b', 'span.aCOpRe', 'div[style*="line-height"]', 'div.s', 'span.st']
+                    
+                    for sel in snippet_selectors:
+                        snippet_elem = await result.query_selector(sel)
+                        if snippet_elem:
+                            snippet = await snippet_elem.inner_text()
+                            if snippet:
+                                break
+                    
+                    results.append({
+                        "title": title.strip(),
+                        "link": link,
+                        "snippet": snippet.strip()
+                    })
+                except Exception:
+                    continue
+                    
+        elif search_engine == "yandex":
+            # Логика для Yandex | см https://t.me/itpolice
+            for result in search_results[:10]:
+                try:
+                    title = ""
+                    title_elem = await result.query_selector('h2 a, .organic__url-text, .OrganicTitle-Link')
+                    if title_elem:
+                        title = await title_elem.inner_text()
+                    
+                    if not title:
+                        continue
+                    
+                    link = ""
+                    link_elem = await result.query_selector('a.organic__url, a.OrganicTitle-Link')
+                    if link_elem:
+                        link = await link_elem.get_attribute('href')
+                    
+                    if not link or not link.startswith('http'):
+                        continue
+                    
+                    snippet = ""
+                    snippet_elem = await result.query_selector('.organic__text, .text-container, .OrganicTextContentSpan')
+                    if snippet_elem:
+                        snippet = await snippet_elem.inner_text()
+                    
+                    results.append({
+                        "title": title.strip(),
+                        "link": link,
+                        "snippet": snippet.strip()
+                    })
+                except Exception:
+                    continue
+        
+        return {
+            "success": True,
+            "search_engine": search_engine,
+            "page": page_number,
+            "direction": direction,
+            "url": current_url,
+            "results": results,
+            "count": len(results)
+        }
+        
+    except Exception as e:
+        return {"success": False, "error": str(e)}
 
 async def browser_close() -> Dict[str, Any]:
     """Закрывает браузер."""

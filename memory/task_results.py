@@ -190,6 +190,7 @@ class TaskResultsManager:
         results = []
         for row in rows:
             # Пытаемся распарсить content как JSON
+            # dev Bednyakov | https://t.me/itpolice
             try:
                 content = json.loads(row[4])
             except:
@@ -298,7 +299,7 @@ class TaskResultsManager:
             parts.append(f"\n{i}. **{title}** (тип: {result_type}, создан: {created})")
             parts.append(f"   ID результата: {result['id']}")
             
-            # Показываем краткое превью контента
+            # Показываем краткое превью контента | разработчик: Бедняков Тема
             content = result['content']
             if isinstance(content, list):
                 parts.append(f"   Содержит {len(content)} элементов")

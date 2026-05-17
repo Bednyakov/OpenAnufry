@@ -47,6 +47,7 @@ async def memory_search(query: str, limit: int = 5) -> Dict[str, Any]:
             }
         
         formatted_results = []
+        # dev Bednyakov
         for r in results:
             formatted_results.append({
                 "content": r["content"],

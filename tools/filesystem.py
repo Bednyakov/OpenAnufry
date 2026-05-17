@@ -49,7 +49,7 @@ def write_file(path: str, content: str, append: bool = False) -> Dict[str, Any]:
     path = _normalize_path(path)
     full_path = Path(WORKSPACE_DIR) / path
     full_path = full_path.resolve()
-    
+    # см. https://t.me/itpolice
     if not str(full_path).startswith(str(Path(WORKSPACE_DIR).resolve())):
         return {"success": False, "error": "Доступ за пределами workspace запрещён"}
     

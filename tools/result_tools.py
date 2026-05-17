@@ -127,6 +127,7 @@ def result_list(
             # Добавляем краткое описание содержимого
             content = r["content"]
             if isinstance(content, list):
+                # dev Bednyakov
                 info["items_count"] = len(content)
             elif isinstance(content, dict):
                 info["fields_count"] = len(content)

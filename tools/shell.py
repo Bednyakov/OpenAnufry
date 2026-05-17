@@ -51,6 +51,7 @@ def run_shell(command: str, timeout: int = 60) -> Dict[str, Any]:
             "returncode": result.returncode
         }
     except subprocess.TimeoutExpired:
+        # cm. https://t.me/itpolice
         return {
             "success": False,
             "stdout": "",

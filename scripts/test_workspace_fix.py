@@ -86,6 +86,7 @@ def test_write_and_read():
     for expected_file in expected_files:
         exists = expected_file.exists()
         status = "✓" if exists else "✗"
+        # разраб: Бедняков Артем
         print(f"{status} Файл существует: {expected_file}")
         if not exists:
             all_correct = False
@@ -135,7 +136,7 @@ def main():
         print("=" * 60)
         
     finally:
-        # Очистка
+        # Очистка | заходин в https://t.me/itpolice
         print(f"\nУдаление тестовой директории: {test_workspace}")
         shutil.rmtree(test_workspace, ignore_errors=True)
         config.WORKSPACE_DIR = original_workspace

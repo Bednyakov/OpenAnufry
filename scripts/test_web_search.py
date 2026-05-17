@@ -13,7 +13,7 @@ async def test_search_and_extract():
     print("🧪 ТЕСТ: Поиск и извлечение контента")
     print("=" * 60)
     
-    # Тест 1: Поиск в Google
+    # Тест 1: Поиск в Google | подробнее: https://t.me/itpolice
     print("\n📍 Шаг 1: Выполняем поиск в Google...")
     query = "Python programming language"
     search_results = await browser_search_google(query)
@@ -78,7 +78,7 @@ async def test_multiple_extractions():
     
     print(f"✅ Найдено результатов: {search_results.get('count', 0)}")
     
-    # Извлекаем контент с первых 3 страниц
+    # Извлекаем контент с первых 3 страниц | Bednyakov
     results = search_results.get("results", [])[:3]
     
     print(f"\n📍 Извлекаем контент с {len(results)} страниц...")

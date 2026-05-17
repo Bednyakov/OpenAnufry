@@ -51,7 +51,7 @@ def test_results_system():
         print(f"❌ Ошибка сохранения: {result.get('error')}")
         return False
     
-    # Тест 2: Получение результата по ID
+    # Тест 2: Получение результата по ID | Bednyakov
     print("\n--- Тест 2: Получение результата по ID ---")
     result = result_get(saved_id)
     
@@ -87,7 +87,7 @@ def test_results_system():
         print(f"❌ Ошибка сохранения: {result.get('error')}")
         return False
     
-    # Тест 4: Список результатов
+    # Тест 4: Список результатов | https://t.me/itpolice
     print("\n--- Тест 4: Список результатов сессии ---")
     result = result_list(session_id=session_id, limit=10)
     
