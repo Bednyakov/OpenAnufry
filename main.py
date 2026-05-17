@@ -7,9 +7,13 @@ import asyncio
 import os
 import uuid
 from typing import List, Dict, Any
-from openai import AsyncOpenAI
 
-from config import LLM_API_KEY, LLM_BASE_URL, LLM_MODEL, MAX_ITERATIONS
+from config import (
+    LLM_PROVIDER, LLM_API_KEY, LLM_BASE_URL, LLM_MODEL, 
+    LLM_TEMPERATURE, LLM_MAX_TOKENS, LLM_TIMEOUT,
+    MAX_ITERATIONS, get_provider_config
+)
+from llm import create_llm_provider
 from tools.shell import run_shell
 from tools.filesystem import read_file, write_file, list_dir, search_files
 from tools.browser import (
@@ -37,7 +41,22 @@ from tools.skills_runner import run_skill_script
 skill_loader = SkillLoader()
 skill_loader.scan()
 
-client = AsyncOpenAI(api_key=LLM_API_KEY, base_url=LLM_BASE_URL)
+# Инициализация LLM провайдера
+provider_config = get_provider_config()
+llm_provider = create_llm_provider(
+    provider_name=LLM_PROVIDER,
+    api_key=provider_config["api_key"],
+    base_url=provider_config["base_url"],
+    model=provider_config["model"],
+    temperature=LLM_TEMPERATURE,
+    max_tokens=LLM_MAX_TOKENS,
+    timeout=LLM_TIMEOUT,
+)
+
+print(f"🔧 LLM Provider: {LLM_PROVIDER}")
+print(f"📡 Base URL: {provider_config['base_url']}")
+print(f"🤖 Model: {provider_config['model']}")
+print(f"⚙️  Function Calling: {'✓' if provider_config['supports_functions'] else '✗'}")
 
 # Описания инструментов для LLM (OpenAI Functions format)
 TOOLS = [
@@ -669,13 +688,11 @@ async def agent_loop(user_message: str, session_id: str) -> str:
     for iteration in range(MAX_ITERATIONS):
         print(f"\n--- Итерация {iteration + 1} ---")
         
-        # Запрос к LLM
-        response = await client.chat.completions.create(
-            model=LLM_MODEL,
+        # Запрос к LLM через провайдера
+        response = await llm_provider.create_completion(
             messages=messages,
-            tools=TOOLS,
-            tool_choice="auto",
-            temperature=0.1
+            tools=TOOLS if provider_config["supports_functions"] else None,
+            tool_choice="auto"
         )
         
         message = response.choices[0].message

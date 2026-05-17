@@ -33,7 +33,10 @@ AgentAnufry/
 │   ├── RESULTS_SYSTEM.md         # Система сохранения результатов
 │   ├── SKILLS_ARCHITECTURE.md    # Архитектура навыков
 │   └── GOOGLE_SEARCH_FIX.md      # Исправления поиска
-└── ...
+├──  llm/
+│   ├── factory.py                # Фабрика для создания LLM провайдеров
+│   └── provider.py               # Базовый класс для LLM провайдеров
+└── llm/
 ```
 _____
 
@@ -45,19 +48,50 @@ pip install -r requirements.txt
 playwright install chromium
 
 ## 2. Настройка конфигурации
-- создайте файл .env в каталоге проекта
-- заполните его:
-    ```
+- скопируйте `.env.example` в `.env`
+- выберите провайдера LLM (OpenAI, Ollama, LM Studio и др.)
+- заполните конфигурацию:
+    ```bash
+    # Для OpenAI
+    LLM_PROVIDER=openai
     LLM_API_KEY=sk-...
-    LLM_BASE_URL=https://...
+    LLM_MODEL=gpt-4
+    
+    # Для локальной Ollama
+    LLM_PROVIDER=ollama
+    LLM_MODEL=llama3.2
     ```
-- выставите нужную конфигурацию в config.py
+    - например, я ограничился таким .env:
+    ```
+    LLM_PROVIDER=openrouter
+    LLM_API_KEY=sk-or-v1-...
+    LLM_BASE_URL=https://openrouter.ai/api/v1
+    LLM_MODEL=gpt-5
+    ```
+- подробнее см. [LOCAL_LLM_GUIDE.md](docs/LOCAL_LLM_GUIDE.md)
 
 ## 3. Запуск
 python main.py
 _____
 
 ## ✨ Новое:
+
+Добавлена поддержка **локальных LLM**:
+
+Агент теперь может работать с локальными языковыми моделями через OpenAI-совместимый API. Поддерживаются:
+- 🏠 **Ollama** - простой запуск моделей локально
+- 💻 **LM Studio** - GUI для управления моделями
+- 🐳 **LocalAI** - self-hosted OpenAI API
+- ⚡ **vLLM** - высокопроизводительный inference
+- 🔧 **Text Generation WebUI** - oobabooga
+
+Переключение между облачными и локальными моделями - одна строка в `.env`:
+```bash
+LLM_PROVIDER=ollama  # или openai, lmstudio, vllm и др.
+```
+
+**Подробнее:** см. [LOCAL_LLM_GUIDE.md](docs/LOCAL_LLM_GUIDE.md)
+_____
 
 Добавлена работа с **навыками**:
 
