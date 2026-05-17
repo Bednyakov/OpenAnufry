@@ -34,8 +34,8 @@ AgentAnufry/
 │   ├── SKILLS_ARCHITECTURE.md    # Архитектура навыков
 │   └── GOOGLE_SEARCH_FIX.md      # Исправления поиска
 ├── llm/
-│   ├── factory.py                # Фабрика для создания LLM провайдеров
-│   └── provider.py               # Базовый класс для LLM провайдеров
+│   ├── factory.py          # Фабрика для создания LLM провайдеров
+│   └── provider.py         # Базовый класс для LLM провайдеров
 └── ...
 ```
 _____
